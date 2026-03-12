@@ -1,0 +1,26 @@
+# Env and secrets
+.env
+*.env.local
+
+# Backend
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/.idea/
+backend/*.iml
+# Local config with secrets – never commit
+backend/src/main/resources/application-local.yml
+
+# Python
+python_agent/.venv/
+python_agent/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

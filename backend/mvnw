@@ -1,0 +1,40 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Maven Wrapper (Maven 3.9.x / Spring Boot 3.4 compatible)
+# ----------------------------------------------------------------------------
+
+set -e
+
+# Resolve project root (directory containing .mvn)
+MAVEN_PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+WRAPPER_LAUNCHER="$MAVEN_PROJECT_ROOT/.mvn/wrapper/maven-wrapper.jar"
+WRAPPER_PROPERTIES="$MAVEN_PROJECT_ROOT/.mvn/wrapper/maven-wrapper.properties"
+
+# Download wrapper jar if missing
+if [ ! -f "$WRAPPER_LAUNCHER" ]; then
+  if [ -f "$WRAPPER_PROPERTIES" ]; then
+    wrapperUrl=$(grep -E '^wrapperUrl=' "$WRAPPER_PROPERTIES" | cut -d'=' -f2-)
+    if [ -n "$wrapperUrl" ]; then
+      echo "Downloading Maven Wrapper jar..."
+      if command -v curl >/dev/null 2>&1; then
+        curl -sL -o "$WRAPPER_LAUNCHER" "$wrapperUrl" || rm -f "$WRAPPER_LAUNCHER"
+      elif command -v wget >/dev/null 2>&1; then
+        wget -q -O "$WRAPPER_LAUNCHER" "$wrapperUrl" || rm -f "$WRAPPER_LAUNCHER"
+      fi
+    fi
+  fi
+fi
+
+if [ -f "$WRAPPER_LAUNCHER" ]; then
+  exec java -classpath "$WRAPPER_LAUNCHER" "-Dmaven.multiModuleProjectDirectory=$MAVEN_PROJECT_ROOT" org.apache.maven.wrapper.MavenWrapperMain "$@"
+fi
+
+# Fallback: delegate to system Maven with clear message
+if command -v mvn >/dev/null 2>&1; then
+  echo "[mvnw] Maven Wrapper jar not found; delegating to system Maven ($(mvn -v | head -1))."
+  exec mvn "$@"
+fi
+
+echo "[mvnw] ERROR: Maven Wrapper jar not found and could not be downloaded."
+echo "[mvnw] System 'mvn' is not on PATH. Install Maven or run from a project with maven-wrapper.jar."
+exit 1
