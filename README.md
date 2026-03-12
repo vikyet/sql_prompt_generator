@@ -6,7 +6,7 @@ A **dual-stack** setup: a **Spring Boot 3.4** service that owns MySQL finance ta
 
 - **Self-serve analytics**: Business users ask questions in plain English instead of writing SQL.
 - **Controlled data access**: All queries go through one backend (read-only, timeout, audit).
-- **BFSI-ready**: Single place to enforce PII masking and security before any data reaches the LLM.
+- **BFSI-ready**: PII censoring ensures name, email, phone, address, etc. are redacted before any data reaches the LLM.
 
 ## Architecture
 
@@ -98,9 +98,19 @@ python_agent/               # LangGraph
   tests/                    # pytest (evaluation)
 ```
 
+## PII censoring
+
+Customer PII is **redacted before the LLM sees it**:
+
+- **Backend** (`FinanceQueryService`): Query results are scanned for PII column names (e.g. `name`, `email`, `phone`, `mobile`, `address_line1`, `address_line2`, `pincode`, `pan`, `aadhar`, `customer_name`, `contact_email`, `contact_phone`). Matching values are replaced with `[REDACTED]` in the JSON returned by `POST /api/query`. `customer_ref` is **not** masked so the agent can use it for reporting and joins.
+- **Agent** (`tools.py`): The same PII column set is applied again to query results before the tool response is passed to the LLM, so any column that looks like PII is censored even if it bypassed the backend.
+
+This keeps the pipeline safe for BFSI and avoids sending raw customer data to the model.
+
 ## Technical challenges overcome
 
 - **Read-only and safety**: Backend only allows `SELECT`, validates SQL, and applies a query timeout so the agent cannot mutate data or run long jobs.
+- **PII censoring**: Two-layer redaction (backend + agent) so the LLM never receives unmasked PII; `customer_ref` remains unmasked for analytics.
 - **Structured outputs**: The agent returns a Pydantic `FinanceAnswer`; no ad-hoc string parsing.
 - **Observability**: Micrometer timers for schema fetch and query execution; failure counter for agent query errors.
 
@@ -111,4 +121,4 @@ python_agent/               # LangGraph
 
 ## Security note
 
-Never commit API keys. Use `.env` (gitignored) and `SPRING_DATASOURCE_*` / `OPENAI_API_KEY` in env. For production, add auth (e.g. `AGENT_API_KEY`) on the backend and PII masking before sending any rows to the LLM.
+Never commit API keys. Use `.env` or `.env.local` (gitignored) and `SPRING_DATASOURCE_*` / `OPENAI_API_KEY` in env. PII censoring is implemented (see **PII censoring** above). For production, add auth (e.g. `AGENT_API_KEY`) on the backend.

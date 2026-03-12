@@ -53,3 +53,23 @@ def test_tools_run_query_mocked():
         m.return_value = {"columns": ["id"], "rows": [{"id": 1}], "rowCount": 1}
         out = run_finance_query.invoke({"sql": "SELECT id FROM customer LIMIT 1"})
     assert "rowCount" in out or "id" in out
+
+
+def test_pii_masking_in_query_result():
+    """PII columns (e.g. email) are redacted; customer_ref is left unmasked for reporting."""
+    from tools import _mask_pii_in_query_result
+
+    result = {
+        "columns": ["id", "customer_ref", "email", "balance"],
+        "rows": [
+            {"id": 1, "customer_ref": "CUST001", "email": "user@example.com", "balance": 1000},
+        ],
+        "rowCount": 1,
+    }
+    masked = _mask_pii_in_query_result(result)
+    assert masked["rowCount"] == 1
+    row = masked["rows"][0]
+    assert row["id"] == 1
+    assert row["balance"] == 1000
+    assert row["customer_ref"] == "CUST001"  # not masked
+    assert row["email"] == "[REDACTED]"

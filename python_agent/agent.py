@@ -4,13 +4,16 @@ Uses get_finance_schema and run_finance_query as tools; returns structured Finan
 """
 from __future__ import annotations
 
+import warnings
+
 from langchain_core.messages import AIMessage
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 
 from config import OPENAI_API_KEY, OPENAI_MODEL
-from schemas import FinanceAnswer
 from tools import get_finance_schema, run_finance_query
+from schemas import FinanceAnswer
+
 
 TOOLS = [get_finance_schema, run_finance_query]
 
@@ -34,12 +37,15 @@ SAFETY RULES:
 
 
 def build_agent():
+    # Pass API key as a string from config (from .env.local / .env).
     llm = ChatOpenAI(
         model=OPENAI_MODEL,
         temperature=0,
-        api_key=OPENAI_API_KEY or None,
+        api_key=OPENAI_API_KEY if OPENAI_API_KEY else None,
     )
-    return create_react_agent(llm, TOOLS, state_modifier=SYSTEM_PROMPT)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return create_react_agent(llm, TOOLS, prompt=SYSTEM_PROMPT)
 
 
 def _extract_sql_from_tool_calls(messages: list) -> str | None:
@@ -66,7 +72,7 @@ def answer_question(question: str) -> FinanceAnswer:
     last = messages[-1]
     content = last.content if hasattr(last, "content") and last.content else str(last)
     sql_used = _extract_sql_from_tool_calls(messages)
-    summary = content[:200] + ("..." if len(content) > 200 else "") if content else "No answer."
+    summary = content[:500] + ("..." if len(content) > 500 else "") if content else "No answer."
     return FinanceAnswer(answer=content or "No answer.", sql_used=sql_used, summary=summary)
 
 

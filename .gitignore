@@ -1,5 +1,6 @@
 # Env and secrets
 .env
+.env.local
 *.env.local
 
 # Backend

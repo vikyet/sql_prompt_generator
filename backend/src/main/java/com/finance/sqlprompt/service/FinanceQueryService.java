@@ -15,9 +15,18 @@ import java.util.regex.Pattern;
 
 /**
  * Executes read-only SELECTs from the agent. Enforces SELECT-only and timeout to prevent abuse and long-running queries.
+ * PII columns in result rows are masked before returning to the agent so the LLM never sees raw customer PII.
  */
 @Service
 public class FinanceQueryService {
+
+    /** Column names (case-insensitive) whose values are redacted before sending to the LLM. */
+    private static final Set<String> PII_COLUMN_NAMES = Set.of(
+        "name", "email", "phone", "mobile", "address_line1", "address_line2", "address",
+        "pincode", "pan", "aadhar", "customer_name", "contact_email", "contact_phone"
+    );
+
+    private static final String PII_MASK = "[REDACTED]";
 
     private static final Pattern SELECT_ONLY = Pattern.compile(
         "^\\s*SELECT\\s+.+",
@@ -85,11 +94,15 @@ public class FinanceQueryService {
         while (rs.next()) {
             Map<String, Object> row = new LinkedHashMap<>();
             for (int i = 1; i <= colCount; i++) {
+                String colName = columns.get(i - 1);
                 Object value = rs.getObject(i);
                 if (value instanceof Timestamp ts) {
                     value = ts.toInstant().toString();
                 }
-                row.put(columns.get(i - 1), value);
+                if (PII_COLUMN_NAMES.contains(colName != null ? colName.toLowerCase() : "")) {
+                    value = PII_MASK;
+                }
+                row.put(colName, value);
             }
             rows.add(row);
         }
